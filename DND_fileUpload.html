@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>메인 페이지</title>
+
+    <style>
+        /* * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            list-style: none;
+        }
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 50px;
+            gap: 10px;
+        } */
+
+        #fileWrap {
+            width: 400px;
+            height: 300px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            background: #f7f7f7;
+            font-size: 14px;
+            border-radius: 10px;
+            border: 3px dashed #aaa;
+            padding: 10px;
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                list-style: none;
+            }
+
+            &.dragEnter {
+                border-color: #000;
+                background: #aaa;
+            }
+            
+            #fileLabel {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+                height: 100%;
+                cursor: pointer;
+
+                article {
+                    text-align: center;
+                }
+                .hide {
+                    display: none;
+                }
+                .sub {
+                    color: #777;
+                }
+            }
+
+            #preview {
+                display: flex;
+                flex-direction: row;
+                width: 100%;
+                height: 100%;
+                overflow: scroll hidden;
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 10px;
+
+                li {
+                    width: auto;
+                    height: 100%;
+                    position: relative;
+                    border: 1px solid #eee;
+                    transition: .1s;
+                    display: flex;
+                    justify-content: center;
+
+                    & > * {
+                        height: 100%;
+                    }
+                    button {
+                        background: 0;
+                        border: 0;
+                        cursor: pointer;
+                        position: absolute;
+                        top: -10px;
+                        /* content: url('data:image/svg+xml,'); */
+                        width: 20px;
+                        height: 20px;
+                        border: 1px solid #eee;
+                        border-radius: 100%;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        background: #ffffff99;
+                    }
+                    &.hide {
+                        animation: hide .1s;
+                    }
+                }
+
+                &::-webkit-scrollbar {
+                    height: 5px;
+                }
+                &::-webkit-scrollbar-thumb {
+                    background-color: #aaa;
+                    border-radius: 10px;
+                    border: 1px solid transparent;
+                }
+                &::-webkit-scrollbar-track {
+                    background-color: transparent;
+                }
+            }
+        }
+        @keyframes hide {
+            100% {opacity: 0; translate: 0 -50%;}
+        }
+    </style>
+</head>
+<body id="body">
+</body>
+<script>
+    const DND_FileUpload = (elementSelector, option) => {
+
+        const optionDefault = {
+            fileSize: null,
+            fileType: null,
+            fileSizeEvent: fileNameArray => console.warn(`[Warning] 사이즈 초과 파일들은 입력이 제한됩니다.\n- 파일명 : ${fileNameArray.join(", ")}`),
+            fileTypeEvent: fileNameArray => console.warn(`[Warning] 형식이 다른 파일들은 입력이 제한됩니다.\n- 파일명 : ${fileNameArray.join(", ")}`),
+            fileChangeEvent: () => {},
+        }
+        option = {
+            ...optionDefault,
+            ...option
+        }
+
+        const id = `customId_No${Math.floor(Math.random() * 10e5)}`
+        document.head.insertAdjacentHTML("beforeend", `<style>
+        </style>`)
+        document.querySelector(elementSelector).insertAdjacentHTML("afterbegin", `
+            <div id="fileWrap">
+                <input type="file" accept="image/*" multiple required hidden id="fileInput">
+                <label for="fileInput" id="fileLabel">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="80px" height="80px" viewBox="0 -960 960 960" fill="#434343">
+                        <path d="M216-144q-29.7 0-50.85-21.15Q144-186.3 144-216v-528q0-29.7 21.15-50.85Q186.3-816 216-816h312v72H216v528h528v-312h72v312q0 29.7-21.15 50.85Q773.7-144 744-144H216Zm456-456v-72h-72v-72h72v-72h72v72h72v72h-72v72h-72ZM264-288h432L552-480 444-336l-72-96-108 144Zm-48-456v528-528Z"/>
+                    </svg>
+                    <article>
+                        <p>이미지를 가져오거나 찾아보기</p>
+                        <p class="hide">이미지를 여기에 놓기</p>
+                        ${option.fileSize ? `<span class="sub">[ 최대 ${option.fileSize}MB ]</span>` : ""}
+                    </article>
+                </label>
+
+                <ul id="preview"></ul>
+            </div>
+        `)
+
+        const fileWrap = document.querySelector("#fileWrap")
+        fileWrap.addEventListener("dragover", e => e.preventDefault())
+        const toggleHide = () => {
+            fileWrap.classList.toggle("dragEnter")
+            fileWrap.querySelectorAll("label p").forEach(e => e.classList.toggle("hide"))
+        }
+        fileWrap.addEventListener("dragenter", toggleHide)
+        fileWrap.addEventListener("dragleave", toggleHide)
+        const fileArray = []
+        const fileAttach = files => {
+            const sizeOverArray = []
+            const typeOverArray = []
+            files.forEach(file => {
+                if(option.fileSize && file.size / 1024 / 1024 > option.fileSize) return sizeOverArray.push(file.name)
+                else if(option.fileType && !file.type.includes(option.fileType)) return typeOverArray.push(file.name)
+
+                fileArray.push(file)
+                fileWrap.querySelector("#preview").insertAdjacentHTML("beforeend", `<li>
+                    <img title="${file.name}" src="${
+                    file.type.startsWith("image/")
+                    ? URL.createObjectURL(file)
+                    : "data:image/svg+xml;base64," + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 -960 960 960" fill="#434343"><path d="M263.72-96Q234-96 213-117.15T192-168v-624q0-29.7 21.15-50.85Q234.3-864 264-864h312l192 192v504q0 29.7-21.16 50.85Q725.68-96 695.96-96H263.72ZM528-624v-168H264v624h432v-456H528ZM264-792v189-189 624-624Z"/></svg>')
+                    }">
+                    <button type="button">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 -960 960 960" fill="#b90000">
+                            <path d="m291-240-51-51 189-189-189-189 51-51 189 189 189-189 51 51-189 189 189 189-51 51-189-189-189 189Z"/>
+                        </svg>
+                    </button>
+                </li>`)
+            })
+            option.fileChangeEvent(fileArray)
+            sizeOverArray.length && option.fileSizeEvent(sizeOverArray)
+            typeOverArray.length && option.fileTypeEvent(typeOverArray)
+        }
+        
+        fileWrap.querySelector("#preview").addEventListener("click", e => {
+            if(!e.target.closest("button")) return
+            const li = e.target.closest("li")
+            const getIndex = () => {
+                for(const [index, item] of [...fileWrap.querySelectorAll("#preview li")].entries()) {
+                    if(item == li) return index
+                }
+                return -1
+            }
+            const index = getIndex()
+            if(0 > index) return
+            li.classList.add("hide")
+            li.addEventListener("animationend", () => {
+                li.remove()
+                fileArray.splice(index, 1)
+                option.fileChangeEvent(fileArray)
+            })
+        })
+
+        fileWrap.addEventListener("drop", e => {
+            e.preventDefault()
+            fileWrap.querySelectorAll("label p").forEach(e => e.classList.toggle("hide"))
+            fileWrap.classList.remove("dragEnter")
+            e.dataTransfer && fileAttach([...e.dataTransfer.files])
+        })
+        fileWrap.querySelector("#fileInput").addEventListener("change", e => fileAttach([...e.target.files]))
+    }
+
+    DND_FileUpload("body", {fileSize: 50})
+</script>
+</html>
